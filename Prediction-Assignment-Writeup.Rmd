@@ -1,0 +1,144 @@
+---
+title: "Prediction Assignment Writeup"
+author: "Diego Hernandez"
+date: "2024-05-04"
+output: html_document
+---
+
+# Summary
+### This the final report of the Peer Assessment project from the Practical Machine Learning course. The goal of this project is to predict the manner in which the six participants performed the exercises. The machine learning algorithm, which uses the classe variable in the training set, is applied to the 20 test cases available in the test data.
+
+# Background
+### Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. 
+
+# Objective
+### In this project, the aim is ti use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants, who were asked to perform barbell lifts correctly and incorrectly in 5 different ways. 
+
+# Data Source
+
+### The data for this project come from this source: http://groupware.les.inf.puc-rio.br/har.
+
+### The full reference of this data is as follows:
+Velloso, E.; Bulling, A.; Gellersen, H.; Ugulino, W.; Fuks, H. “Qualitative Activity Recognition of Weight Lifting Exercises. Proceedings of 4th International Conference in Cooperation with SIGCHI (Augmented Human ’13)”. Stuttgart, Germany: ACM SIGCHI, 2013.
+
+### The training data for this project are available here:
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+
+### The test data are available here:
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+
+```{r, echo = TRUE}
+library(lattice)
+library(ggplot2)
+library(caret)
+library(randomForest)
+library(rpart)
+library(rpart.plot)
+library(tibble)
+library(bitops)
+library(rattle)
+
+set.seed(222)
+```
+
+```{r, echo = TRUE}
+url_train <- "http://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+url_quiz  <- "http://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+
+data_train <- read.csv(url(url_train), strip.white = TRUE, na.strings = c("NA",""))
+data_quiz  <- read.csv(url(url_quiz),  strip.white = TRUE, na.strings = c("NA",""))
+
+dim(data_train)
+dim(data_quiz)
+
+```
+
+
+```{r, echo = TRUE}
+inTrain  <- createDataPartition(data_train$classe, p=0.75, list=FALSE)
+training <- data_train[ inTrain, ]
+testing  <- data_train[-inTrain, ]
+
+
+dim(training)
+dim(testing)
+
+```
+# Cleaning Data
+### The two datasets (train_set and test_set) have a large number of NA values as well as near-zero-variance (NZV) variables. Both will be removed together with their ID variables.
+
+```{r, echo = TRUE}
+nzv_var <- nearZeroVar(training)
+training <- training[ , -nzv_var]
+testing  <- testing [ , -nzv_var]
+
+na_var <- sapply(training, function(x) mean(is.na(x))) > 0.95
+training <- training[ , na_var == FALSE]
+testing  <- testing [ , na_var == FALSE]
+
+dim(training)
+dim(testing)
+```
+
+### Columns 1 to 5 are identification variables only; they will be removed 
+
+```{r, echo = TRUE}
+training <- training[ , -(1:5)]
+testing  <- testing [ , -(1:5)]
+
+dim(training)
+dim(testing)
+```
+
+
+```
+
+# Prediction Models
+## Decision Tree Model
+```{r, echo = TRUE}
+set.seed(222)
+fit_decision_tree <- rpart(classe ~ ., data = training, method="class")
+fancyRpartPlot(fit_decision_tree)
+```
+### Predictions of the decision tree model on the test set.
+
+```{r, echo = TRUE}
+predict_decision_tree <- predict(fit_decision_tree, newdata = testing, type="class")
+conf_matrix_decision_tree <- confusionMatrix(predict_decision_tree, factor(testing$classe))
+conf_matrix_decision_tree
+
+```
+### The predictive accuracy of the Decision Tree Model is relatively low at 75.2 %.
+
+## LDA Model 
+
+```{r, echo = TRUE}
+set.seed(222)
+lda_model<-train(classe ~ ., data = training, method="lda")
+predict<-predict(lda_model,testing)
+conf_matrix_lda_model <- confusionMatrix(predict, factor(testing$classe))
+conf_matrix_lda_model
+```
+
+### The predictive accuracy of the LDA Model is relatively low at 71.7 %.
+
+## Random Forest Model
+
+```{r, echo = TRUE}
+set.seed(222)
+RFmodel<-train(classe ~ ., data = training, method= "rf")
+predict<-predict(RFmodel,testing)
+conf_matrix_RF_model<- confusionMatrix(predict, factor(testing$classe))
+conf_matrix_RF_model
+```
+
+# Conclusion
+### The greatest accuracy was achieved with the Random Forest Model, with an accuracy of 99.7%. In this way, this machine learning algorithm was applied to predict the 20 test cases with the test data available for that.
+
+
+```{r, echo = TRUE}
+predict_quiz <- as.data.frame(predict(RFmodel, newdata = data_quiz))
+predict_quiz
+```
+
